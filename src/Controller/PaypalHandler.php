@@ -105,4 +105,4 @@ class PaypalHandler extends ControllerBase {
     return count($result) == 3 ? $result : false;
   }
 
-  
+}
