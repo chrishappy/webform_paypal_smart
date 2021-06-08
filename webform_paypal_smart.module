@@ -1,0 +1,83 @@
+<?php
+
+/**
+ * @file
+ * webform_paypal_smart.module
+ */ 
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\webform_paypal_smart\WebformPaypalApi;
+
+/**
+ * Implements hook_form_alter()
+ */
+// function webform_paypal_smart_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  
+//   switch ($form_id) {
+//     case '':
+
+//       break;
+//   }
+// }
+
+/**
+ * Create a dynamic library, based on whether Paypal is in Sandbox or Live mode
+ */
+function webform_paypal_smart_library_info_build() {
+  // Get Webform Paypal Configuation
+  $paypalConfig = \Drupal::config(WebformPaypalApi::PAYMENT_CONFIG);
+  $libraries = [];
+
+  // Default
+  $libraries['paypal-sdk'] = [];
+
+  $paypalStatus = $paypalConfig->get('paypal_status');
+
+  // Switch the Client ID depending on Sandbox vs Production
+  switch ($paypalStatus) {
+    case WebformPaypalApi::PAYPAL_SANDBOX:
+      $userClientId = $paypalConfig->get('paypal_sandbox_client_id');
+    break;
+
+    case WebformPaypalApi::PAYPAL_PRODUCTION:
+      $userClientId = $paypalConfig->get('paypal_live_client_id');
+    break;
+
+    default:
+      \Drupal::logger(WebformPaypalApi::LOGGER_NAME)->warning('Paypal Status not set in Webform Paypal (Smart Buttons) settings. Paypal Library could not be generated');
+    break;
+  }
+
+  if (empty($userClientId)) {
+    \Drupal::logger(WebformPaypalApi::LOGGER_NAME)->warning('Paypal Live Client ID not set. Paypal Library could not be generated');
+  }
+  else {
+    $libraries['paypal-sdk'] += [
+      'version' => 1,
+      'js' => [
+        'https://www.paypal.com/sdk/js?currency=CAD&disable-card=amex,jcb&locale=en_CA&client-id=' . $userClientId => [
+          'type'=> 'external',
+          'minified' => true,
+        ]
+      ],
+    ];
+  }
+
+  return $libraries;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

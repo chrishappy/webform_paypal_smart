@@ -1,0 +1,14 @@
+# Enable Smart Buttons on Webform
+webform-paypal-checkout:
+  version: 1
+  js:
+    assets/webform-paypal-checkout.js: {}
+  dependencies:
+    - core/jquery
+    - webform_paypal_smart/paypal-sdk # ADDED THROUGH hook_library_info_build()
+
+# Prevent Clicking the Submit Button Twice
+dont-submit-again:
+  version: 1
+  js:
+    assets/dont-submit-again.js: {}

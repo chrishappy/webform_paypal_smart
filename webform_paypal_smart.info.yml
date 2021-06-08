@@ -1,0 +1,11 @@
+name: Webform Payment (Smart Buttons)
+description: "Enables Smart Paypal buttons on Webform submissions"
+package: Webform
+
+type: module
+core: 8.x
+core_version_requirement: ^8 || ^9
+
+dependencies:
+  - webform
+  - webform_ui

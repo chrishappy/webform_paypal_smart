@@ -1,0 +1,5 @@
+webform_paypal_smart.admin_payment_settings_form:
+  title: "Payment"
+  route_name: webform_paypal_smart.admin_payment_settings_form
+  base_route: webform_paypal_smart.admin_payment_settings_form
+  weight: 20

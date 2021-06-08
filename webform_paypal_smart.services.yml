@@ -1,0 +1,3 @@
+services:
+  webform_paypal_api:
+    class: Drupal\webform_paypal_smart\WebformPaypalApi

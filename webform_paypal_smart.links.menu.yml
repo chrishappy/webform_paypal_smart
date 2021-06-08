@@ -1,0 +1,6 @@
+webform_paypal_smart.admin_payment_settings_form:
+  title: "Payment"
+  route_name: webform_paypal_smart.admin_payment_settings_form
+  description: "Adjust the PayPal Api keys"
+  parent: webform_paypal_smart.admin_config_system
+  weight: 10
