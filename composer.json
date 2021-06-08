@@ -1,0 +1,13 @@
+{
+    "name": "drupal/webform_paypal_smart",
+    "type": "drupal-module",
+    "description": "Enables Smart Paypal buttons on Webform submissions",
+    "homepage": "http://drupal.org/project/webform_paypal_smart",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "drupal/core": "^8 || ^9",
+        "paypal/paypal-checkout-sdk": "^1.0"
+    },
+    "require-dev": {
+    }
+}

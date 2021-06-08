@@ -1,4 +1,4 @@
-name: Webform Payment (Smart Buttons)
+name: Webform Paypal (Smart Buttons)
 description: "Enables Smart Paypal buttons on Webform submissions"
 package: Webform
 
@@ -8,4 +8,3 @@ core_version_requirement: ^8 || ^9
 
 dependencies:
   - webform
-  - webform_ui
