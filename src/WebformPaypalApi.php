@@ -21,9 +21,11 @@ class WebformPaypalApi {
   
   /**
     * Contants for which Paypal Keys to use
+    *
+    * Strings because config retrieves ints as strings
     */
-  const PAYPAL_SANDBOX = 0;
-  const PAYPAL_PRODUCTION = 1;
+  const PAYPAL_SANDBOX = '0';
+  const PAYPAL_PRODUCTION = '1';
 
   /**
    * Used for logging messages

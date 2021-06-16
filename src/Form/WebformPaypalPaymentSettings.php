@@ -15,6 +15,11 @@ use Drupal\Core\Cache\CacheBackendInterface;
 class WebformPaypalPaymentSettings extends ConfigFormBase  {
 
   /**
+   * @var \Drupal\webform_paypal_smart\WebformPaypalApi $webformPaypalApi
+   */
+  protected $webformPaypalApi;
+  
+  /**
     * @var \Drupal\Core\Cache\CacheBackendInterface $cacheRender
     */
   protected $cacheRender;
@@ -27,9 +32,10 @@ class WebformPaypalPaymentSettings extends ConfigFormBase  {
   protected $editableConfig = [];
   
   /**
-    * Constructs a PerformanceForm object.
-    */
-  public function __construct(CacheBackendInterface $cacheRender){
+   * Constructs a PerformanceForm object.
+   */
+  public function __construct($webformPaypalApi, CacheBackendInterface $cacheRender){
+    $this->webformPaypalApi = $webformPaypalApi;
     $this->cacheRender = $cacheRender;
 
     $this->formConfig = WebformPaypalApi::PAYMENT_CONFIG;
@@ -37,11 +43,11 @@ class WebformPaypalPaymentSettings extends ConfigFormBase  {
   }
 
   /**
-    * {@inheritdoc}
-    */
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container) {
     return new static(
-      // $container->get('webform_paypal_smart'), @TODO include later, or remove?
+      $container->get('webform_paypal_api'), 
       $container->get('cache.render')
     );
   }
@@ -73,6 +79,17 @@ class WebformPaypalPaymentSettings extends ConfigFormBase  {
       '#type' => 'details',
       '#open' => TRUE,
       '#title' => $this->t('PayPal API'),
+    ];
+
+    // Show the current Paypal Status
+    $currentPaypalStatus = 
+      ($config->get('paypal_status') === $this->webformPaypalApi::PAYPAL_SANDBOX) 
+        ? $this->t('Sandbox')
+        : $this->t('Live');
+    
+    $form['paypal_api_keys']['current_paypal_status'] = [
+      '#type' => 'markup',
+      '#markup' => $this->t('Current PayPal Status: %status', ['%status' => $currentPaypalStatus]),
     ];
 
     $form['paypal_api_keys']['paypal_status'] = [
