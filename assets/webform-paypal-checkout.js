@@ -25,7 +25,7 @@
             amount: totalObject
           }],
           application_context: {
-            brand_name: $('.site-branding__name-link').text().trim(), //@todo replace
+            brand_name: $('.site-branding__name').text().trim(), //@todo replace
             landing_page: 'BILLING',
             shipping_preference: 'NO_SHIPPING',
             user_action: 'PAY_NOW',
