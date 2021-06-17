@@ -32,11 +32,14 @@ function webform_paypal_smart_library_info_build() {
   $libraries['paypal-sdk'] = [];
 
   $paypalStatus = $paypalConfig->get('paypal_status');
+  
+  $additionalQuery = ''; // Must begin with an &
 
   // Switch the Client ID depending on Sandbox vs Production
   switch ($paypalStatus) {
     case WebformPaypalApi::PAYPAL_SANDBOX:
       $userClientId = $paypalConfig->get('paypal_sandbox_client_id');
+//      $additionalQuery = '&debug=true';
     break;
 
     case WebformPaypalApi::PAYPAL_PRODUCTION:
@@ -52,10 +55,11 @@ function webform_paypal_smart_library_info_build() {
     \Drupal::logger(WebformPaypalApi::LOGGER_NAME)->warning('Paypal Live Client ID not set. Paypal Library could not be generated');
   }
   else {
+    // @see https://developer.paypal.com/docs/checkout/reference/customize-sdk/#query-parameters
     $libraries['paypal-sdk'] += [
       'version' => 1,
       'js' => [
-        'https://www.paypal.com/sdk/js?currency=CAD&disable-card=amex,jcb&locale=en_CA&client-id=' . $userClientId => [
+        'https://www.paypal.com/sdk/js?currency=CAD&disable-card=amex,jcb&locale=en_CA&client-id=' . $userClientId . $additionalQuery => [
           'type'=> 'external',
           'minified' => true,
         ]

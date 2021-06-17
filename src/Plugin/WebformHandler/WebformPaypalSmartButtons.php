@@ -32,11 +32,15 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
    */
   public function alterForm(array &$form, FormStateInterface $form_state, WebformSubmissionInterface $webform_submission) {
     // Attach classes + library
-    $form['#attributes']['class'][] = 'js--webformPaypalCheckoutForm';
-    $form['#attached']['library'][] = 'webform-paypal-smart/webform-paypal-checkout';
+    $form['#attributes']['class'][] = 'js--webformPaypalCheckoutForm'; // @TODO make constants in webform api
+    $form['#attached']['library'][] = 'webform_paypal_smart/webform-paypal-checkout';
     
-    if (isset($form['elements']['actions'], $form['elements']['actions']['submit'])) {
-      $form['elements']['actions']['submit']['#attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton';
+//    debug($form['elements']);
+    
+//    debug(json_encode($form['elements']));
+    
+    if (isset($form['elements']['actions'])) {
+      $form['elements']['actions']['submit__attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton'; // @TODO make constants in webform api
     }
     else {
       // @TODO What happens if the user has a different submit button?
