@@ -16,9 +16,6 @@
             ticketData = $form.data('ticketData'),
             $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
         
-        console.log(ticketData);
-        console.log(JSON.stringify(parseFloat(ticketData['cworks__ticket__1']['price'])));
-        
 //        $submitButton.once('webformPaypalCheckout').on('click', function (e) {
 //          e.preventDefault();
 //          
