@@ -31,6 +31,12 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
    * {@inheritdoc}
    */
   public function alterForm(array &$form, FormStateInterface $form_state, WebformSubmissionInterface $webform_submission) {
+    
+    // Set the webform submission id if it exists
+    if (!empty($webform_submission->id())) {
+      $form['#attributes']['data-sid'] = $webform_submission->id();
+    }
+    
     // Attach classes + library
     $form['#attributes']['class'][] = 'js--webformPaypalCheckoutForm'; // @TODO make constants in webform api
     $form['#attached']['library'][] = 'webform_paypal_smart/webform-paypal-checkout';

@@ -8,102 +8,34 @@
 (function ($) {
   
   Drupal.behaviors.webformPaypalCheckout = {
+    $theForm: {},
     attach: function (context) {
       var webformPaypalCheckout = this;
-
       $('.js--webformPaypalCheckoutForm', context).once('webformPaypalCheckout').each(function() {
         var $form = $(this),
-            ticketData = $form.data('ticketData'),
             $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
         
-//        $submitButton.once('webformPaypalCheckout').on('click', function (e) {
-//          e.preventDefault();
-//          
-//          var $submitButton = $(this);
-
-          // Disable the button
-//          $submitButton
-//            .attr('disabled', 'true')
-//            .after('<span class="ajax-progress-throbber"><div class="throbber">&nbsp;</div></span>');
-              
-          // @see https://developer.paypal.com/docs/api/orders/v2/#definition-amount_with_breakdown
-          var totalAmount = {
-            currency_code: 'CAD', // @TODO Allow users to change this
-            value: 0, // Fill in when creating itemArray
-            breakdown: {
-              item_total: {
-                value: 0, // Fill in when creating itemArray
-                currency_code: 'CAD'
-              }
-            }
-          };
+        webformPaypalCheckout.$theForm = $form;
+        
+        // Wait for paypal api to load
+        // @TODO How can we detect whether the PayPal SDK has loaded
+        var orderCount = 0;
+        var putInOrder = setInterval(function () {
+          if (typeof paypal !== 'undefined') {
+            webformPaypalCheckout.initPaypalButtons();
+            clearInterval(putInOrder);
+          } else if (orderCount++ > 20) {
+            console.error('The Paypal SDK did not load');
+            clearInterval(putInOrder);
+          }
+        }, 700);
           
-          // Create itemArray
-          // @see https://developer.paypal.com/docs/api/orders/v2/#definition-item
-          var itemArray = [];
-        console.log($form.find('[data-drupal-selector^="edit-tickets-items-"]')); // This is running twice per ticket
-          $form.find('[data-drupal-selector^="edit-tickets-items-"]').map(function () {
-            var $ticket = $(this),
-                sku = $ticket.find('[name$="][ticket_type][select]').val(),
-                name = $ticket.find('[name$="][name]"]').val() || '';
-                        
-            if (ticketData.hasOwnProperty(sku)) {
-              if (name.length > 0) {  name = ' for ' + name;  }
-
-              itemArray.push({
-                "sku": sku,
-                "name": ticketData[sku]['name'] + name,
-                "quantity": 1,
-                "unit_amount": {
-                  "value": parseFloat(ticketData[sku]['price']),
-                  "currency_code": ticketData[sku]['currency']
-                }
-              });
-              
-              totalAmount.value += parseFloat(ticketData[sku]['price']); // @TODO account for currency
-            }
-          });
-        
-          // Set amount breakdown
-          totalAmount.breakdown.item_total.value = totalAmount.value;
-          
-          // Wait for paypal api to load
-          // @TODO How can we detect whether the PayPal SDK has loaded
-          var orderCount = 0;
-          var putInOrder = setInterval(function () {
-            if (typeof paypal !== 'undefined') {
-              var purchaseUnits = [{
-                items: itemArray,
-                amount: totalAmount
-              }];
-              webformPaypalCheckout.initPaypalButtons(purchaseUnits);
-              clearInterval(putInOrder);
-            } else if (orderCount++ > 20) {
-              console.error('The Paypal SDK did not load');
-              clearInterval(putInOrder);
-            }
-          }, 700);
-          
-//          return false;
-//        });
-        
-        $form.after('<div id="checkout__paypal-buttons" />');
-        
-            /*$items = $form.find('[data-paypal-item]'),
-            itemArray = $items.map(function() {  return $(this).data('paypalItem') }).get(),
-            $total = $form.find('[data-paypal-amount]'),
-            totalAmount = $total.data('paypalAmount'),
-            userID = $total.data('userId');*/
-        
-        
-
-        
-
+        $form.parent().after('<div id="checkout__paypal-buttons" />');
       });
     },
-    initPaypalButtons: function (purchaseUnits) {
+    initPaypalButtons: function () {
       var webformPaypalCheckout = this,
-          paypalOrder = webformPaypalCheckout.createPaypalOrder(purchaseUnits);
+          $form = this.$theForm;
     
       // Render the PayPal button into #paypal-button-container
       paypal.Buttons({
@@ -120,22 +52,83 @@
         },
         // Set up the transaction
         createOrder: function(data, actions) {
-          return actions.order.create(paypalOrder);
+          // Save webform as draft
+          // @TODO save webform as draft using AJAX, perhaps async?
+          $form.find('[data-drupal-selector="edit-actions-draft"]').click();
+          
+          // Create the paypal order on demand
+          try {
+            var paypalOrder = webformPaypalCheckout.createPaypalOrder();
+            return actions.order.create(paypalOrder);
+          } catch (e) {
+            console.err(e);
+          }
         },
 
         // Finalize the transaction
-//        onApprove: webformPaypalCheckout.onPaypalApprove,
+        onApprove: webformPaypalCheckout.onPaypalApprove,
       }).render('#checkout__paypal-buttons');
 
       $('body').addClass('paypal-processed');
     },
-    createPaypalOrder: function (purchaseUnits) {
+    createPaypalOrder: function () {
+      
+      var $form = this.$theForm,
+          ticketData = $form.data('ticketData');
+      
+      // @see https://developer.paypal.com/docs/api/orders/v2/#definition-amount_with_breakdown
+      var totalAmount = {
+        currency_code: 'CAD', // @TODO Allow users to change this
+        value: 0, // Fill in when creating itemArray
+        breakdown: {
+          item_total: {
+            value: 0, // Fill in when creating itemArray
+            currency_code: 'CAD'
+          }
+        }
+      };
+
+      // Create itemArray
+      // @see https://developer.paypal.com/docs/api/orders/v2/#definition-item
+      var itemArray = [];
+      $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
+        var $ticket = $(this),
+            sku = $ticket.find('[name$="][ticket_type][select]').val(),
+            name = $ticket.find('[name$="][name]"]').val() || '';
+
+        if (ticketData.hasOwnProperty(sku)) {
+          if (name.length > 0) {  name = ' for ' + name;  } // Format: [ticket] for [name]
+
+          itemArray.push({
+            "sku": sku,
+            "name": ticketData[sku]['name'] + name,
+            "quantity": 1,
+            "unit_amount": {
+              "value": parseFloat(ticketData[sku]['price']),
+              "currency_code": ticketData[sku]['currency']
+            }
+          });
+
+          totalAmount.value += parseFloat(ticketData[sku]['price']); // @TODO account for currency
+        }
+      });
+      
+      if (totalAmount.value <= 0) {
+        throw 'No items are being sold';
+      }
+
+      // Set amount breakdown
+      totalAmount.breakdown.item_total.value = totalAmount.value;
+      
       // See https://developer.paypal.com/docs/api/orders/v2/#orders-create-request-body
       var paypalOrder = {
         intent: 'CAPTURE',
         locale: 'en_CA',
         country: 'CA',
-        purchase_units: purchaseUnits,
+        purchase_units: [{
+          items: itemArray,
+          amount: totalAmount
+        }],
         application_context: {
           brand_name: $('.site-branding__name').text().trim(), //@todo replace
           landing_page: 'BILLING',
@@ -178,6 +171,8 @@
       return paypalOrder;
     },
     onPaypalApprove: function(data, actions) {
+      var $form = this.$theForm;
+      
       return actions.order.capture().then(function(details) {
 
         // Show a success message to the buyer
@@ -196,7 +191,7 @@
           dataType: 'json',
           data: {
             orderID: data.orderID,
-            userID: userID,
+            submissionID: $form.data('sid') || 0,
           },
           success: function (data, textStatus) {
             alert('Success, your payment has been stored.');

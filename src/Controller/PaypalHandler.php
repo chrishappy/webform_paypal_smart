@@ -50,10 +50,16 @@ class PaypalHandler extends ControllerBase {
     
     try {
       $orderID = $this->request->request->get('orderID');
-      $userID = $this->request->request->get('userID');
+      $sid = $this->request->request->get('submissionID');
 
-      if (!$orderID) {
-        $this->logger->info($this->t('PayPalOrdersApi: ID not found'));
+      if (empty($orderID) || empty($sid)) {
+        if (empty($orderID)) {
+          $this->logger->info($this->t('PayPalOrdersApi: ID not found'));
+        }
+        
+        if (empty($sid)) {
+          $this->logger->info($this->t('PayPalOrdersApi: Webform Submission ID not found'));
+        }
         
         $response->setData($this->t('No data'));
         $response->setStatusCode(400);
@@ -69,12 +75,23 @@ class PaypalHandler extends ControllerBase {
           throw new \Exception('Could not fetch PayPal order');
         }
         
-        $paypalDetails = $paypalOrder->result->purchase_units[0];
-        $amount = (float) $paypalDetails->amount->value;
+        $paypalDetails = $paypalOrder->result->purchase_units;
+//        $amount = (float) $paypalDetails->amount->value;
 
         //@TODO Detect if payment is in real or sandbox (using links array?)
+        debug($paypalOrder);
+        debug($paypalDetails);
         
-        // @TODO Process Payment
+        // Load submission using sid.
+        /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
+        $webform_submission = \Drupal\webform\Entity\WebformSubmission::load($sid);
+        $webform_submission->set('_paypal_data', [
+          'order_id' => $orderID,
+          'payment_json' => json_encode($paypalOrder),
+        ]);
+        $webform_submission->save();
+
+        //@TODO Process Payment
         
         $this->logger->info('PayPalOrdersApi: Finished storing Order #@orderID', ['@orderID' => $orderID]);
         
