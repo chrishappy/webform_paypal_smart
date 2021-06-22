@@ -41,10 +41,6 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
     $form['#attributes']['class'][] = 'js--webformPaypalCheckoutForm'; // @TODO make constants in webform api
     $form['#attached']['library'][] = 'webform_paypal_smart/webform-paypal-checkout';
     
-//    debug($form['elements']);
-    
-//    debug(json_encode($form['elements']));
-    
     if (isset($form['elements']['actions'])) {
       $form['elements']['actions']['submit__attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton'; // @TODO make constants in webform api
     }
@@ -86,47 +82,6 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
    */
   public function confirmForm(array &$form, FormStateInterface $form_state, WebformSubmissionInterface $webform_submission) {
     
-    // Set Data and save webform
-//    $fields = $webform_submission->getData();
-//    
-//    $webform_submission->setData(array_merge($fields, $this->data));
-//    
-//    $webform_submission->save();
-//    
-//    // Get sid
-//    $this->sid = $webform_submission->id();
-//    
-//    // Create Urls
-//    $return = Url::fromRoute('<current>',
-//                             [],
-//                             ['query' => ['paypalReturn' => 'true'], 'absolute' => true]);
-//    
-//    $cancel_return = Url::fromRoute('<current>',
-//                             [],
-//                             ['query' => ['paypalReturn' => 'false'], 'absolute' => true]);
-//    
-//    $notify = Url::fromRoute('cworks.paypal_receive',
-//                             ['id' => $this->sid],
-//                             ['absolute' => true]);
-//    
-//    // Data to be used in the PaypayHandler Controller
-//    $data = [
-//      //'formAction'      => 'https://www.sandbox.paypal.com/cgi-bin/webscr',
-//      'formAction'      => 'https://www.paypal.com/cgi-bin/webscr',
-//      'fields'          => $fields,
-//      'notify'          => $notify->toString(),
-//      'return'          => $return->toString(),
-//      'cancel_return'   => $cancel_return->toString(),
-//      'product'         => $this->product,
-//      'custom'          => json_encode($this->custom),
-//    ];
-//    
-//    // Set data according to session id 
-//    $_SESSION['webform_data'][$this->sid] = $data;
-//
-//    $message = 'ID: ' . $this->sid . ':' . print_r($data,1); 
-//    \Drupal::logger('SendToPaypal')->debug($message);
-//    
-//    $form_state->setRedirect('cworks.paypal_send', ['id' => $this->sid]);
+    
   }
 }

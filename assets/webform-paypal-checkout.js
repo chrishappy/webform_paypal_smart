@@ -9,6 +9,7 @@
   
   Drupal.behaviors.webformPaypalCheckout = {
     $theForm: {},
+    sid: 0,
     attach: function (context) {
       var webformPaypalCheckout = this;
       $('.js--webformPaypalCheckoutForm', context).once('webformPaypalCheckout').each(function() {
@@ -16,6 +17,8 @@
             $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
         
         webformPaypalCheckout.$theForm = $form;
+        webformPaypalCheckout.sid = $form.data('sid'); // @TODO Must ensure that the form is draft
+                                                       // Save webform as draft if data-sid not present?
         
         // Wait for paypal api to load
         // @TODO How can we detect whether the PayPal SDK has loaded
@@ -171,12 +174,10 @@
       return paypalOrder;
     },
     onPaypalApprove: function(data, actions) {
-      var $form = this.$theForm;
-      
       return actions.order.capture().then(function(details) {
 
         // Show a success message to the buyer
-        alert('Thank you. Please wait as we store your payment.');
+//        alert('Thank you. Please wait as we store your payment.');
 
         // Prevent unloading
         $(window).on('beforeunload.waitForPaypal', function () {
@@ -191,10 +192,10 @@
           dataType: 'json',
           data: {
             orderID: data.orderID,
-            submissionID: $form.data('sid') || 0,
+            submissionID: $('.js--webformPaypalCheckoutForm').data('sid'), // @TODO improve getting sid || Drupal.behaviors.webformPaypalCheckout.sid,
           },
           success: function (data, textStatus) {
-            alert('Success, your payment has been stored.');
+            // alert('Success, your payment has been stored.');
 
             // All the window to reload
             $(window).off('beforeunload.waitForPaypal');
@@ -202,8 +203,9 @@
             // Reload the page
             location.reload(true);
           },
-          fail: function(xhr, textStatus, errorThrown){
-            alert('Sorry, your payment has not been stored. Please contact us for more information.');
+          error: function(xhr, textStatus, errorThrown){
+            console.error(textStatus + ' ' + JSON.stringify(errorThrown));
+            // alert('Sorry, your payment has not been stored. Please contact us for more information.');
 
             // All the window to reload
             $(window).off('beforeunload.waitForPaypal');

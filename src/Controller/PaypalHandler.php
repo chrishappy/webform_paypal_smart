@@ -51,6 +51,7 @@ class PaypalHandler extends ControllerBase {
     try {
       $orderID = $this->request->request->get('orderID');
       $sid = $this->request->request->get('submissionID');
+      debug($this->request->request->all());
 
       if (empty($orderID) || empty($sid)) {
         if (empty($orderID)) {
@@ -85,13 +86,15 @@ class PaypalHandler extends ControllerBase {
         // Load submission using sid.
         /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
         $webform_submission = \Drupal\webform\Entity\WebformSubmission::load($sid);
-        $webform_submission->set('_paypal_data', [
+        $webform_submission->setElementData('_paypal_data', [[
           'order_id' => $orderID,
           'payment_json' => json_encode($paypalOrder),
-        ]);
+        ]]);
+        $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
         $webform_submission->save();
-
-        //@TODO Process Payment
+        
+        // Set message
+        \Drupal::messenger()->addMessage('Your payment has been successfully proccessed');
         
         $this->logger->info('PayPalOrdersApi: Finished storing Order #@orderID', ['@orderID' => $orderID]);
         
