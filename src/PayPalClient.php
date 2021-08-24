@@ -22,9 +22,9 @@ class PayPalClient
    */
   public static function client()
   {
-//      if (!class_exists('PayPalHttpClient')) {
-//        throw new \Exception('Missing a class: PayPalHttpClient');
-//      }
+     if (!class_exists('PayPalCheckoutSdk\Core\PayPalHttpClient')) {
+       throw new \Exception('Missing a class: PayPalHttpClient');
+     }
     
       return new PayPalHttpClient(self::environment());
   }

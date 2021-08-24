@@ -42,7 +42,8 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
     $form['#attached']['library'][] = 'webform_paypal_smart/webform-paypal-checkout';
     
     if (isset($form['elements']['actions'])) {
-      $form['elements']['actions']['submit__attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton'; // @TODO make constants in webform api
+      $form['elements']['actions']['#attributes']['class'][] = 'visually-hidden'; // We want users to click the paypal button
+      $form['elements']['actions']['#submit__attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton'; // @TODO make constants in webform api
     }
     else {
       // @TODO What happens if the user has a different submit button?
@@ -55,26 +56,6 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state, WebformSubmissionInterface $webform_submission) {
-    $errorCount = 0;
-    
-    $node = $webform_submission->getSourceEntity();
-    
-    $formData = $webform_submission->getData();
-    
-    $ticketsData = json_decode($form['#attributes']['data-ticket-data'], true);
-    $ticketKeys = array_keys($ticketsData);
-    
-    foreach ($formData['tickets'] as $delta => $ticket) {
-      if (!in_array($ticket['ticket_type'], $ticketKeys)) {
-        $form_state->setError($form['elements']['tickets']['items'][$delta]['ticket_type'], $this->t('Sorry, this is an unknown ticket'));
-        
-        // This also works, but PHP will output an error if the above element does not work
-        // $form_state->setErrorByName("tickets][items][$delta][ticket_type", $this->t('Sorry, this is an unknown ticket2'));
-        $errorCount++;
-      }
-    }
-    
-    return ($errorCount === 0);
   }
 
   /**

@@ -222,6 +222,7 @@ class WebformPaypalPaymentSettings extends ConfigFormBase  {
 
     $values = $form_state->getValues();
     $config = $this->config($this->formConfig);
+    $rebuildConfigCache = false;
 
     foreach ($values as $key => $value) {
       switch ($key) {

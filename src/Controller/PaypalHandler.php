@@ -40,7 +40,7 @@ class PaypalHandler extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('webform_paypal_api'),
       $container->get('request_stack')->getCurrentRequest(),
-      $container->get('logger.factory'),
+      $container->get('logger.factory')
     );  
   }
   
@@ -62,30 +62,36 @@ class PaypalHandler extends ControllerBase {
           $this->logger->info($this->t('PayPalOrdersApi: Webform Submission ID not found'));
         }
         
-        $response->setData($this->t('No data'));
-        $response->setStatusCode(400);
-        return $response;
-
+        
+        throw new \Exception('No data');
       }
       else {
         $this->logger->info($this->t('PayPalOrdersApi: Processing Order #') . $orderID);
 
         $paypalOrder = $this->webformPaypalApi->getOrder($orderID);
-        
+
         if (empty($paypalOrder)) {
           throw new \Exception('Could not fetch PayPal order');
         }
         
+        // Get paypal details
         $paypalDetails = $paypalOrder->result->purchase_units;
-//        $amount = (float) $paypalDetails->amount->value;
+
+        
+        // Load submission using sid.
+        /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
+        $webform_submission = \Drupal\webform\Entity\WebformSubmission::load($sid);
+
+        // Validate the paypal total
+        $paypalTotalAmount = $this->calcuatePaypalTotalPaid($paypalDetails);
+        $webformTotal = $this->calcuateWebformTotalPaid($webform_submission->getData());
+
+        // @TODO How to detect that payment didn't change?
 
         //@TODO Detect if payment is in real or sandbox (using links array?)
         debug($paypalOrder);
         debug($paypalDetails);
         
-        // Load submission using sid.
-        /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
-        $webform_submission = \Drupal\webform\Entity\WebformSubmission::load($sid);
         $webform_submission->setElementData('_paypal_data', [[
           'order_id' => $orderID,
           'payment_json' => json_encode($paypalOrder),
@@ -98,7 +104,11 @@ class PaypalHandler extends ControllerBase {
         
         $this->logger->info('PayPalOrdersApi: Finished storing Order #@orderID', ['@orderID' => $orderID]);
         
-        $response->setData($this->t('Transaction stored.'));
+        $response->setStatusCode(200);
+        $response->setData([
+          'status' => 200,
+          'message' => $this->t('Transaction stored.')
+        ]);
         return $response;
       }
 
@@ -106,20 +116,52 @@ class PaypalHandler extends ControllerBase {
       $this->logger->error("PayPalOrdersApi: There was an error: %ex\n", ['%ex' => json_encode($ex)]);
 
       $response->setStatusCode(400);
-      $response->setData($this->t('Issue processing'));
+      $response->setData([
+        'status' => 400,
+        'message' => $this->t('Paypal Issue processing: %ex', ['%ex' => $ex->getMessage()]),
+      ]);
       return $response;
       
     } catch (\Exception $ex) {
-      $this->logger->error("PayPalOrdersApi: @message <br> %ex\n", ['@message' => $ex->getMessage(), '%ex' => json_encode($ex)]);
+      $this->logger->error("PayPalOrdersApi: @message <br>\n", ['@message' => $ex->getMessage()]);
 
       $response->setStatusCode(400);
-      $response->setData($this->t('Issue processing'));
+      $response->setData([
+        'status' => 400,
+        'message' => $this->t('General Issue processing: %ex', ['%ex' => $ex->getMessage()]),
+      ]);
       return $response;
       
     }
-
   }
 
+  /**
+   * Calculate the total the payee paid
+   * 
+   * @param array|object $paypalDetails
+   */
+  private function calcuatePaypalTotalPaid($paypalDetails) {
+    $paypalTotalAmount = 0.0;
+
+    if (is_array($paypalDetails)) {
+      foreach($paypalDetails as $paypalDetail) {
+        $paypalTotalAmount += (float) $paypalDetail->amount->value;
+      }
+    }
+    else {
+      $paypalTotalAmount = (float) $paypalDetails->amount->value;
+    }
+
+    return $paypalTotalAmount;
+  }
+
+  private function calcuateWebformTotalPaid(array $webformData) {
+    // $webformData
+  }
+
+  /**
+   * Break apart the SKU, e.g. paragraph__tickets__123
+   */
   private function processSku($sku) {
     $result = explode('__', $sku);
     return count($result) == 3 ? $result : false;

@@ -52,7 +52,15 @@ function webform_paypal_smart_library_info_build() {
   }
 
   if (empty($userClientId)) {
+    \Drupal::messenger()->addMessage(
+      t('Please enter your Paypal API keys at <a href="@url">the Webform Paypal Payment Settings form</a>.',
+      ['@url' => \Drupal\Core\Url::fromRoute('webform_paypal_smart.admin_payment_settings_form')->toString()])
+    );
     \Drupal::logger(WebformPaypalApi::LOGGER_NAME)->warning('Paypal Live Client ID not set. Paypal Library could not be generated');
+    $libraries['paypal-sdk'] += [
+      'version' => 1,
+      'js' => [],
+    ];
   }
   else {
     // @see https://developer.paypal.com/docs/checkout/reference/customize-sdk/#query-parameters
@@ -70,8 +78,16 @@ function webform_paypal_smart_library_info_build() {
   return $libraries;
 }
 
-
-
+/**
+ * Implements hook_install
+ */
+function webform_paypal_smart_install() {
+  // Remind developers to update their Paypal API keys
+  \Drupal::messenger()->addMessage(
+    t('Please enter your Paypal API keys at <a href="@url">the Webform Paypal Payment Settings form</a>.',
+    ['@url' => \Drupal\Core\Url::fromRoute('webform_paypal_smart.admin_payment_settings_form')->toString()])
+  );
+}
 
 
 
