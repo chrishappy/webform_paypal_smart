@@ -8,16 +8,17 @@
 (function ($) {
 
   Drupal.behaviors.webformPaypalCheckout = {
-    $theForm: {},
-    sid: 0,
+    // sid: 0, // Did not work, dynamically find it after saving draft
+
     paypalContainerId: 'webform-smart-paypal__paypal-button-container',
+    draftButtonSelector: '[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft',
+    taxAmount: 0.05,
     attach: function (context) {
       var webformPaypalCheckout = this;
       $('.js--webformPaypalCheckoutForm', context).once('webformPaypalCheckout').each(function () {
-        var $form = $(this),
-          $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
+        var $form = $(this);
+          // $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
 
-        webformPaypalCheckout.$theForm = $form;
         webformPaypalCheckout.sid = $form.data('sid'); // @TODO Must ensure that the form is draft
         // Save webform as draft if data-sid not present?
 
@@ -28,7 +29,7 @@
           if (typeof paypal !== 'undefined') {
             // @TODO Prevent function from running twice when in a Drupal modal
             // Check if there is already a button
-            if ($form.parent().parent().children('#' + webformPaypalCheckout.paypalContainerId).children().length === 0) {
+            if ($('#' + webformPaypalCheckout.paypalContainerId).children().length === 0 && $form.find(webformPaypalCheckout.draftButtonSelector).length !== 0) {
               webformPaypalCheckout.initPaypalButtons();
             }
             clearInterval(putInOrder);
@@ -43,7 +44,7 @@
     },
     initPaypalButtons: function () {
       var webformPaypalCheckout = this,
-        $form = this.$theForm;
+        $form = $('.js--webformPaypalCheckoutForm'); // Don't cache due to https://stackoverflow.com/q/42053775
 
       // Render the PayPal button into #paypal-button-container
       paypal.Buttons({
@@ -58,18 +59,56 @@
           branding: 'true',
           fundingicons: 'false',
         },
+        // onInit: function (data, actions) {
+        //   // Disable the buttons
+        //   actions.disable();
+
+        //   // Listen for changes to the checkbox
+        //   document.querySelector('#check')
+        //     .addEventListener('change', function (event) {
+        //       // Enable or disable the button when it is checked or unchecked
+        //       if (event.target.checked) {
+        //         actions.enable();
+        //       } else {
+        //         actions.disable();
+        //       }
+        //     });
+        // },
+        onClick: function (data, actions) { // Validate the button click
+          // Source: https://stackoverflow.com/a/48267035 (Loilo <https://stackoverflow.com/u/2048874>)
+          // if (!$form[0].checkValidity()) {
+          console.log("Start on click")
+          if (!$form[0].reportValidity()) {
+            // Create the temporary button, click and remove it
+            var tmpSubmit = $('<input type="submit">')
+            $form.append(tmpSubmit)
+            tmpSubmit.click()
+            $form.remove(tmpSubmit)
+            console.log("Form is not valid");
+            console.log($form[0].reportValidity())
+          }
+          else if (false) {
+            // @TODO check if there are enough tickets
+            // Reserve tickets before initating order
+          }
+          else {
+            return actions.resolve();
+          }
+
+          return actions.reject();
+        },
         // Set up the transaction
         createOrder: function (data, actions) {
           // Save webform as draft
           // @TODO save webform as draft using AJAX, perhaps async?
-          $form.find('[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft').click();
+          $form.find(webformPaypalCheckout.draftButtonSelector).click();
 
           // Create the paypal order on demand
           try {
             var paypalOrder = webformPaypalCheckout.createPaypalOrder();
             return actions.order.create(paypalOrder);
           } catch (e) {
-            console.err(e);
+            console.error(e);
           }
         },
 
@@ -81,8 +120,9 @@
     },
     createPaypalOrder: function () {
 
-      var $form = this.$theForm,
-        ticketData = $form.data('ticketData');
+      var $form = $('.js--webformPaypalCheckoutForm'), // Don't cache due to https://stackoverflow.com/q/42053775
+        ticketData = $form.data('ticketData'),
+        taxAmount = this.taxAmount;
 
       // @see https://developer.paypal.com/docs/api/orders/v2/#definition-amount_with_breakdown
       var totalAmount = {
@@ -91,7 +131,11 @@
         breakdown: {
           item_total: {
             value: 0, // Fill in when creating itemArray
-            currency_code: 'CAD'
+            currency_code: 'CAD' // @TODO Allow users to change this
+          },
+          tax_total: {
+            value: 0, // Fill in after calculating item_total
+            currency_code: 'CAD' // @TODO Allow users to change this
           }
         }
       };
@@ -99,34 +143,46 @@
       // Create itemArray
       // @see https://developer.paypal.com/docs/api/orders/v2/#definition-item
       var itemArray = [];
+      // $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
       $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
         var $ticket = $(this),
           sku = $ticket.find('[name$="][ticket_type][select]').val(),
-          name = $ticket.find('[name$="][name]"]').val() || '';
+          name = $ticket.find('[name$="][name]"]').val() || '',
+          itemPrice = parseFloat(ticketData[sku]['price']),
+          itemTax = parseFloat((itemPrice * taxAmount).toFixed(2));
 
         if (ticketData.hasOwnProperty(sku)) {
           if (name.length > 0) { name = ' for ' + name; } // Format: [ticket] for [name]
 
           itemArray.push({
-            "sku": sku,
-            "name": ticketData[sku]['name'] + name,
-            "quantity": 1,
-            "unit_amount": {
-              "value": parseFloat(ticketData[sku]['price']),
-              "currency_code": ticketData[sku]['currency']
+            sku: sku,
+            name: ticketData[sku]['name'] + name,
+            quantity: 1,
+            unit_amount: {
+              value: itemPrice,
+              currency_code: ticketData[sku]['currency']
+            },
+            tax: {
+              value: itemTax,
+              currency_code: ticketData[sku]['currency']
             }
           });
 
-          totalAmount.value += parseFloat(ticketData[sku]['price']); // @TODO account for currency
+          totalAmount.breakdown.item_total.value += itemPrice;
+          totalAmount.breakdown.tax_total.value += itemTax;
         }
       });
+
+      // Set amount breakdown
+      totalAmount.breakdown.tax_total.value = parseFloat(totalAmount.breakdown.tax_total.value.toFixed(2)); // Fix percision
+      totalAmount.breakdown.item_total.value = parseFloat(totalAmount.breakdown.item_total.value.toFixed(2)); // Fix percision
+
+      totalAmount.value = totalAmount.breakdown.item_total.value + totalAmount.breakdown.tax_total.value;
+      totalAmount.value = parseFloat(totalAmount.value.toFixed(2)); // Fix percision
 
       if (totalAmount.value <= 0) {
         throw 'No items are being sold';
       }
-
-      // Set amount breakdown
-      totalAmount.breakdown.item_total.value = totalAmount.value;
 
       // See https://developer.paypal.com/docs/api/orders/v2/#orders-create-request-body
       var paypalOrder = {
@@ -204,6 +260,10 @@
 
             // All the window to reload
             $(window).off('beforeunload.waitForPaypal');
+
+            $(window).on('beforeunload', function(){
+              $(window).scrollTop(0);
+            });
 
             // Reload the page
             window.location.reload(window.location.href + '#random' + Math.random());

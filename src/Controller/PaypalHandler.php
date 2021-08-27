@@ -50,7 +50,15 @@ class PaypalHandler extends ControllerBase {
     
     try {
       $orderID = $this->request->request->get('orderID');
-      $sid = $this->request->request->get('submissionID');
+
+      /** @var \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store */
+      $temp_store = \Drupal::service('tempstore.private')->get('webform_paypal_smart_buttons');
+      $store_entries = $temp_store
+        ->get('currentWebformOrder');
+      $sid = $store_entries['sid'] ?? $this->request->request->get('submissionID');
+      $temp_store->delete('currentWebformOrder');
+
+      debug(['store_entires', $store_entries]);
       debug($this->request->request->all());
 
       if (empty($orderID) || empty($sid)) {
@@ -61,7 +69,6 @@ class PaypalHandler extends ControllerBase {
         if (empty($sid)) {
           $this->logger->info($this->t('PayPalOrdersApi: Webform Submission ID not found'));
         }
-        
         
         throw new \Exception('No data');
       }
