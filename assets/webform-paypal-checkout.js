@@ -12,12 +12,13 @@
 
     paypalContainerId: 'webform-smart-paypal__paypal-button-container',
     draftButtonSelector: '[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft',
+    ticketsRowSelector: 'tr[data-drupal-selector^="edit-tickets-items-"]',
     taxAmount: 0.05,
     attach: function (context) {
       var webformPaypalCheckout = this;
       $('.js--webformPaypalCheckoutForm', context).once('webformPaypalCheckout').each(function () {
         var $form = $(this);
-          // $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
+        // $submitButton = $form.find('.js--webformPaypalCheckoutSubmitButton');
 
         webformPaypalCheckout.sid = $form.data('sid'); // @TODO Must ensure that the form is draft
         // Save webform as draft if data-sid not present?
@@ -29,7 +30,8 @@
           if (typeof paypal !== 'undefined') {
             // @TODO Prevent function from running twice when in a Drupal modal
             // Check if there is already a button
-            if ($('#' + webformPaypalCheckout.paypalContainerId).children().length === 0 && $form.find(webformPaypalCheckout.draftButtonSelector).length !== 0) {
+            if ($('#' + webformPaypalCheckout.paypalContainerId).children().length === 0
+              && $form.find(webformPaypalCheckout.ticketsRowSelector).length !== 0) {
               webformPaypalCheckout.initPaypalButtons();
             }
             clearInterval(putInOrder);
@@ -59,33 +61,16 @@
           branding: 'true',
           fundingicons: 'false',
         },
-        // onInit: function (data, actions) {
-        //   // Disable the buttons
-        //   actions.disable();
-
-        //   // Listen for changes to the checkbox
-        //   document.querySelector('#check')
-        //     .addEventListener('change', function (event) {
-        //       // Enable or disable the button when it is checked or unchecked
-        //       if (event.target.checked) {
-        //         actions.enable();
-        //       } else {
-        //         actions.disable();
-        //       }
-        //     });
-        // },
         onClick: function (data, actions) { // Validate the button click
           // Source: https://stackoverflow.com/a/48267035 (Loilo <https://stackoverflow.com/u/2048874>)
-          // if (!$form[0].checkValidity()) {
-          console.log("Start on click")
-          if (!$form[0].reportValidity()) {
+          if (!$form[0].checkValidity()) {
+            // if (!$form[0].reportValidity()) {
             // Create the temporary button, click and remove it
-            var tmpSubmit = $('<input type="submit">')
-            $form.append(tmpSubmit)
-            tmpSubmit.click()
-            $form.remove(tmpSubmit)
+            var $tmpSubmit = $('<input type="submit">')
+            $form.append($tmpSubmit)
+            $tmpSubmit.click()
+            $tmpSubmit.remove();
             console.log("Form is not valid");
-            console.log($form[0].reportValidity())
           }
           else if (false) {
             // @TODO check if there are enough tickets
@@ -120,7 +105,8 @@
     },
     createPaypalOrder: function () {
 
-      var $form = $('.js--webformPaypalCheckoutForm'), // Don't cache due to https://stackoverflow.com/q/42053775
+      var webformPaypalCheckout = this,
+        $form = $('.js--webformPaypalCheckoutForm'), // Don't cache due to https://stackoverflow.com/q/42053775
         ticketData = $form.data('ticketData'),
         taxAmount = this.taxAmount;
 
@@ -144,7 +130,7 @@
       // @see https://developer.paypal.com/docs/api/orders/v2/#definition-item
       var itemArray = [];
       // $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
-      $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
+      $form.find(webformPaypalCheckout.ticketsRowSelector).map(function () {
         var $ticket = $(this),
           sku = $ticket.find('[name$="][ticket_type][select]').val(),
           name = $ticket.find('[name$="][name]"]').val() || '',
@@ -261,7 +247,7 @@
             // All the window to reload
             $(window).off('beforeunload.waitForPaypal');
 
-            $(window).on('beforeunload', function(){
+            $(window).on('beforeunload', function () {
               $(window).scrollTop(0);
             });
 

@@ -99,10 +99,8 @@ class PaypalHandler extends ControllerBase {
         debug($paypalOrder);
         debug($paypalDetails);
         
-        $webform_submission->setElementData('_paypal_data', [[
-          'order_id' => $orderID,
-          'payment_json' => json_encode($paypalOrder),
-        ]]);
+        $webform_submission->setElementData('_paypal_order_id', $orderID);
+        $webform_submission->setElementData('_paypal_order_json', json_encode($paypalOrder));
         $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
         $webform_submission->save();
         
@@ -169,9 +167,9 @@ class PaypalHandler extends ControllerBase {
   /**
    * Break apart the SKU, e.g. paragraph__tickets__123
    */
-  private function processSku($sku) {
-    $result = explode('__', $sku);
-    return count($result) == 3 ? $result : false;
-  }
+  // private function processSku($sku) {
+  //   $result = explode('__', $sku);
+  //   return count($result) == 2 ? $result : false;
+  // }
 
 }
