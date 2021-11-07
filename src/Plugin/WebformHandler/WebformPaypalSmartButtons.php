@@ -66,7 +66,7 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
     }
     
     if (isset($form['elements']['actions'])) {
-      $form['elements']['actions']['#attributes']['class'][] = 'visually-hidden'; // We want users to click the paypal button
+      $form['elements']['actions']['#attributes']['class'][] = 'hidden'; // We want users to click the paypal button
       // $form['elements']['actions']['#submit__attributes']['class'][] = 'js--webformPaypalCheckoutSubmitButton'; // @TODO make constants in webform api
 
       unset($form['elements']['actions']['submit']);
