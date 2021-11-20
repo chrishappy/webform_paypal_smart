@@ -96,13 +96,17 @@ class PaypalHandler extends ControllerBase {
         // @TODO How to detect that payment didn't change?
 
         //@TODO Detect if payment is in real or sandbox (using links array?)
-        debug($paypalOrder);
-        debug($paypalDetails);
+        // debug([$paypalOrder, $paypalDetails]);
         
         $webform_submission->setElementData('_paypal_order_id', $orderID);
-        $webform_submission->setElementData('_paypal_order_json', json_encode($paypalOrder));
+        $webform_submission->setElementData('_paypal_order_json', json_encode($paypalOrder)); // Does not store billing address
+
         $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
         $webform_submission->save();
+
+        // Trigger save
+        $webform_id = $webform_submission->getWebform()->id();
+        \Drupal::moduleHandler()->invokeAll('webform_paypal_smart_submission_post_save', [$webform_submission, $webform_id, $update]);
         
         // Set message
         \Drupal::messenger()->addMessage('Your payment has been successfully proccessed');

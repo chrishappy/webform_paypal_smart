@@ -7,13 +7,16 @@
 
 (function ($) {
 
+  Drupal.webformPaypalCheckout = {
+    createOrderHooks: {}
+  }
+
   Drupal.behaviors.webformPaypalCheckout = {
     // sid: 0, // Did not work, dynamically find it after saving draft
 
     paypalContainerId: 'webform-smart-paypal__paypal-button-container',
     draftButtonSelector: '[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft',
-    ticketsRowSelector: 'tr[data-drupal-selector^="edit-tickets-items-"]',
-    taxAmount: 0.05,
+    orderFunctionAttribute: 'paypalCheckoutWebformId',
     attach: function (context) {
       var webformPaypalCheckout = this;
       $('.js--webformPaypalCheckoutForm', context).once('webformPaypalCheckout').each(function () {
@@ -30,8 +33,9 @@
           if (typeof paypal !== 'undefined') {
             // @TODO Prevent function from running twice when in a Drupal modal
             // Check if there is already a button
-            if ($('#' + webformPaypalCheckout.paypalContainerId).children().length === 0
-              && $form.find(webformPaypalCheckout.ticketsRowSelector).length !== 0) {
+
+             // TODO Check if form is properly initatilized
+            if ($('#' + webformPaypalCheckout.paypalContainerId).children().length === 0) {
               webformPaypalCheckout.initPaypalButtons();
             }
             clearInterval(putInOrder);
@@ -88,9 +92,11 @@
           // @TODO save webform as draft using AJAX, perhaps async?
           $form.find(webformPaypalCheckout.draftButtonSelector).click();
 
+          var orderFunction = $form.data(webformPaypalCheckout.orderFunctionAttribute);
+
           // Create the paypal order on demand
           try {
-            var paypalOrder = webformPaypalCheckout.createPaypalOrder();
+            var paypalOrder = webformPaypalCheckout.createPaypalOrder(orderFunction);
             return actions.order.create(paypalOrder);
           } catch (e) {
             console.error(e);
@@ -103,122 +109,18 @@
 
       $('body').addClass('paypal-processed');
     },
-    createPaypalOrder: function () {
+    createPaypalOrder: function (orderFunctionToCall) {
 
-      var webformPaypalCheckout = this,
-        $form = $('.js--webformPaypalCheckoutForm'), // Don't cache due to https://stackoverflow.com/q/42053775
-        ticketData = $form.data('ticketData'),
-        taxAmount = this.taxAmount;
+      var $form = $('.js--webformPaypalCheckoutForm'); // Don't cache due to https://stackoverflow.com/q/42053775
 
-      // @see https://developer.paypal.com/docs/api/orders/v2/#definition-amount_with_breakdown
-      var totalAmount = {
-        currency_code: 'CAD', // @TODO Allow users to change this
-        value: 0, // Fill in when creating itemArray
-        breakdown: {
-          item_total: {
-            value: 0, // Fill in when creating itemArray
-            currency_code: 'CAD' // @TODO Allow users to change this
-          },
-          tax_total: {
-            value: 0, // Fill in after calculating item_total
-            currency_code: 'CAD' // @TODO Allow users to change this
-          }
-        }
-      };
+      if (Drupal.webformPaypalCheckout.createOrderHooks.hasOwnProperty(orderFunctionToCall) &&
+            typeof Drupal.webformPaypalCheckout.createOrderHooks[orderFunctionToCall] == 'function') {
+              var defaultOrderObject = JSON.parse(JSON.stringify(Drupal.webformPaypalCheckout.defaultOrder));
 
-      // Create itemArray
-      // @see https://developer.paypal.com/docs/api/orders/v2/#definition-item
-      var itemArray = [];
-      // $form.find('tr[data-drupal-selector^="edit-tickets-items-"]').map(function () {
-      $form.find(webformPaypalCheckout.ticketsRowSelector).map(function () {
-        var $ticket = $(this),
-          sku = $ticket.find('[name$="][ticket_type][select]').val(),
-          name = $ticket.find('[name$="][name]"]').val() || '',
-          itemPrice = parseFloat(ticketData[sku]['price']),
-          itemTax = parseFloat((itemPrice * taxAmount).toFixed(2));
-
-        if (ticketData.hasOwnProperty(sku)) {
-          if (name.length > 0) { name = ' for ' + name; } // Format: [ticket] for [name]
-
-          itemArray.push({
-            sku: sku,
-            name: ticketData[sku]['name'] + name,
-            quantity: 1,
-            unit_amount: {
-              value: itemPrice,
-              currency_code: ticketData[sku]['currency']
-            },
-            tax: {
-              value: itemTax,
-              currency_code: ticketData[sku]['currency']
+              return Drupal.webformPaypalCheckout.createOrderHooks[orderFunctionToCall]($form, defaultOrderObject);
             }
-          });
 
-          totalAmount.breakdown.item_total.value += itemPrice;
-          totalAmount.breakdown.tax_total.value += itemTax;
-        }
-      });
-
-      // Set amount breakdown
-      totalAmount.breakdown.tax_total.value = parseFloat(totalAmount.breakdown.tax_total.value.toFixed(2)); // Fix percision
-      totalAmount.breakdown.item_total.value = parseFloat(totalAmount.breakdown.item_total.value.toFixed(2)); // Fix percision
-
-      totalAmount.value = totalAmount.breakdown.item_total.value + totalAmount.breakdown.tax_total.value;
-      totalAmount.value = parseFloat(totalAmount.value.toFixed(2)); // Fix percision
-
-      if (totalAmount.value <= 0) {
-        throw 'No items are being sold';
-      }
-
-      // See https://developer.paypal.com/docs/api/orders/v2/#orders-create-request-body
-      var paypalOrder = {
-        intent: 'CAPTURE',
-        locale: 'en_CA',
-        country: 'CA',
-        purchase_units: [{
-          items: itemArray,
-          amount: totalAmount
-        }],
-        application_context: {
-          brand_name: $('.site-branding__name').text().trim(), //@todo replace
-          landing_page: 'BILLING',
-          shipping_preference: 'NO_SHIPPING',
-          user_action: 'PAY_NOW',
-          locale: 'en-CA',
-          //           return_url: '',
-          //           cancel_url: '',
-        },
-        payer: {
-          email_address: 'johndoe@example.com',
-          name: {  //@todo replace
-            given_name: 'John', //$('.field-user--field-first-name .field__item').text().trim(),
-            surname: 'Doe', // $('.field-user--field-last-name .field__item').text().trim()
-          },
-          address: {
-            address_line_1: '',
-            address_line_2: '',
-            admin_area_2: '', // City
-            admin_area_1: 'BC', // Province
-            postal_code: '',
-            country_code: 'CA'
-          }
-        }
-      };
-
-      //      var phone = $('.field-user--field-phone .field__item').text().replace(/[^\d]/g, '');
-      //
-      //      if (1 <= phone.length && phone.length <= 14) {
-      //        paypalOrder.payer.phone  = {
-      //          phone_type: 'MOBILE',
-      //          phone_number: {
-      //            national_number: phone //@todo replace
-      //          }
-      //        };
-      //      }
-
-      console.log(JSON.stringify(paypalOrder));
-
-      return paypalOrder;
+      throw "No CreateOrderHook found with key: " + orderFunctionToCall;
     },
     onPaypalApprove: function (data, actions) {
       return actions.order.capture().then(function (details) {
@@ -263,6 +165,67 @@
           }
         })
       });
+    }
+  }
+
+  // See https://developer.paypal.com/docs/api/orders/v2/#orders-create-request-body
+  Drupal.webformPaypalCheckout.defaultOrder = {
+    intent: 'CAPTURE',
+    locale: 'en_CA',
+    country: 'CA',
+    purchase_units: [],
+    application_context: {
+      brand_name: $('.site-branding__name').text().trim(), //@todo replace
+      landing_page: 'BILLING',
+      shipping_preference: 'NO_SHIPPING',
+      user_action: 'PAY_NOW',
+      locale: 'en-CA',
+      //           return_url: '',
+      //           cancel_url: '',
+    },
+    payer: {
+      // email_address: '',
+      name: {
+        // given_name: '',
+        // surname: '',
+      },
+      address: {
+        address_line_1: '',
+        address_line_2: '',
+        admin_area_2: '', // City
+        admin_area_1: 'BC', // Province
+        postal_code: '',
+        country_code: 'CA',
+      }
+    }
+  }
+
+  Drupal.webformPaypalCheckout.setPhone = function (order, phoneNumber) {
+    phone = phoneNumber.replace(/[^\d]/g, '');
+
+     if (1 <= phone.length && phone.length <= 14) {
+      order.payer.phone  = {
+         phone_type: 'MOBILE',
+         phone_number: {
+           national_number: phone //@todo replace
+         }
+       };
+     }
+  }
+
+  Drupal.webformPaypalCheckout.setNameAndEmail = function (order, name, email) {
+    order.payer.email = email;
+
+    if (!Array.isArray(name)) {
+      name = name.split(' ');
+    }
+
+    if (name.length == 2) {
+      order.payer.name.given_name = name[0];
+      order.payer.name.surname = name[1];
+    }
+    else {
+      order.payer.name.given_name = name.join(' ');
     }
   }
 
