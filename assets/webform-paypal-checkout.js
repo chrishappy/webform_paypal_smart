@@ -8,13 +8,14 @@
 (function ($) {
 
   Drupal.webformPaypalCheckout = {
-    createOrderHooks: {}
+    handlers: {}
   }
 
   Drupal.behaviors.webformPaypalCheckout = {
     // sid: 0, // Did not work, dynamically find it after saving draft
 
     paypalContainerId: 'webform-smart-paypal__paypal-button-container',
+    totalAmountsClass: 'webform-smart-paypal__total-amounts-container',
     draftButtonSelector: '[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft',
     orderFunctionAttribute: 'paypalCheckoutWebformId',
     attach: function (context) {
@@ -45,7 +46,16 @@
           }
         }, 700);
 
-        $form.parent().after('<div id="' + webformPaypalCheckout.paypalContainerId + '" />');
+        $form.parent().after('<div class="' + webformPaypalCheckout.totalAmountsClass + '"></div>' + 
+                             '<div id="' + webformPaypalCheckout.paypalContainerId + '"></div>');
+
+      // TODO make orderFunctionToCall into a object property
+      var orderFunctionToCall = $form.data(webformPaypalCheckout.orderFunctionAttribute);
+      if (Drupal.webformPaypalCheckout.handlers.hasOwnProperty(orderFunctionToCall)
+          && typeof Drupal.webformPaypalCheckout.handlers[orderFunctionToCall].initTotalSection == 'function') {
+        Drupal.webformPaypalCheckout.handlers[orderFunctionToCall].initTotalSection($form, '.' + webformPaypalCheckout.totalAmountsClass);
+      }
+        
       });
     },
     initPaypalButtons: function () {
@@ -113,11 +123,11 @@
 
       var $form = $('.js--webformPaypalCheckoutForm'); // Don't cache due to https://stackoverflow.com/q/42053775
 
-      if (Drupal.webformPaypalCheckout.createOrderHooks.hasOwnProperty(orderFunctionToCall) &&
-            typeof Drupal.webformPaypalCheckout.createOrderHooks[orderFunctionToCall] == 'function') {
+      if (Drupal.webformPaypalCheckout.handlers.hasOwnProperty(orderFunctionToCall) &&
+            typeof Drupal.webformPaypalCheckout.handlers[orderFunctionToCall].createOrder == 'function') {
               var defaultOrderObject = JSON.parse(JSON.stringify(Drupal.webformPaypalCheckout.defaultOrder));
 
-              return Drupal.webformPaypalCheckout.createOrderHooks[orderFunctionToCall]($form, defaultOrderObject);
+              return Drupal.webformPaypalCheckout.handlers[orderFunctionToCall].createOrder($form, defaultOrderObject);
             }
 
       throw "No CreateOrderHook found with key: " + orderFunctionToCall;

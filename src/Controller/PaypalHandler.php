@@ -106,7 +106,7 @@ class PaypalHandler extends ControllerBase {
 
         // Trigger save
         $webform_id = $webform_submission->getWebform()->id();
-        \Drupal::moduleHandler()->invokeAll('webform_paypal_smart_submission_post_save', [$webform_submission, $webform_id, $update]);
+        \Drupal::moduleHandler()->invokeAll('webform_paypal_smart_submission_post_save', [$webform_submission, $webform_id]);
         
         // Set message
         \Drupal::messenger()->addMessage('Your payment has been successfully proccessed');
