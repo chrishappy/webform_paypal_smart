@@ -46,8 +46,10 @@
           }
         }, 700);
 
-        $form.parent().after('<div class="' + webformPaypalCheckout.totalAmountsClass + '"></div>' + 
-                             '<div id="' + webformPaypalCheckout.paypalContainerId + '"></div>');
+        $form.parent().after('<div class="webform-paypal-checkout--other-actions"> ' +
+                                '<div class="' + webformPaypalCheckout.totalAmountsClass + '"></div>' + 
+                                '<div id="' + webformPaypalCheckout.paypalContainerId + '"></div>' + 
+                             '</div>');
 
       // TODO make orderFunctionToCall into a object property
       var orderFunctionToCall = $form.data(webformPaypalCheckout.orderFunctionAttribute);
@@ -143,8 +145,6 @@
           return 'Please wait as we record your payment.';
         });
 
-        console.log(details);
-
         return $.ajax({
           url: '/paypal/complete',
           type: 'POST',
@@ -164,7 +164,14 @@
             });
 
             // Reload the page
-            window.location.reload(window.location.href + '#random' + Math.random());
+            var destination = getQueryVariable('dest') || false;
+            
+            if (destination) {
+              window.location.replace(destination + '#random' + Math.random());
+            }
+            else {
+              window.location.reload(window.location.href  + '#random' + Math.random());
+            }
           },
           error: function (xhr, textStatus, errorThrown) {
             console.error('Error: ' + textStatus + ' ' + JSON.stringify(errorThrown));
@@ -237,6 +244,18 @@
     else {
       order.payer.name.given_name = name.join(' ');
     }
+  }
+
+  // https://css-tricks.com/snippets/javascript/get-url-variables/
+  function getQueryVariable(variable)
+  {
+    var query = window.location.search.substring(1);
+    var vars = query.split("&");
+    for (var i=0;i<vars.length;i++) {
+            var pair = vars[i].split("=");
+            if(pair[0] == variable){return pair[1];}
+    }
+    return '';
   }
 
 })(jQuery)
