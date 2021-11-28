@@ -14,6 +14,7 @@
   Drupal.behaviors.webformPaypalCheckout = {
     // sid: 0, // Did not work, dynamically find it after saving draft
 
+    parentContainerClass: 'webform-paypal-checkout--other-actions',
     paypalContainerId: 'webform-smart-paypal__paypal-button-container',
     totalAmountsClass: 'webform-smart-paypal__total-amounts-container',
     draftButtonSelector: '[data-drupal-selector="edit-actions-draft"], [data-drupal-selector="edit-actions"] .webform-button--draft',
@@ -46,10 +47,12 @@
           }
         }, 700);
 
-        $form.parent().after('<div class="webform-paypal-checkout--other-actions"> ' +
-                                '<div class="' + webformPaypalCheckout.totalAmountsClass + '"></div>' + 
-                                '<div id="' + webformPaypalCheckout.paypalContainerId + '"></div>' + 
-                             '</div>');
+        if ($form.parent().siblings('.' + webformPaypalCheckout.parentContainerClass).length === 0) {
+          $form.parent().after('<div class="' + webformPaypalCheckout.parentContainerClass + '"> ' +
+                                  '<div class="' + webformPaypalCheckout.totalAmountsClass + '"></div>' + 
+                                  '<div id="' + webformPaypalCheckout.paypalContainerId + '"></div>' + 
+                              '</div>');
+        }
 
       // TODO make orderFunctionToCall into a object property
       var orderFunctionToCall = $form.data(webformPaypalCheckout.orderFunctionAttribute);
@@ -72,7 +75,7 @@
           height: 40,
           shape: 'rect',
           label: 'pay',
-          layout: 'horizontal',
+          // layout: 'horizontal',
           tagline: 'false',
           branding: 'true',
           fundingicons: 'false',
@@ -139,6 +142,8 @@
 
         // Show a success message to the buyer
         //        alert('Thank you. Please wait as we store your payment.');
+        var $ajaxProgress = $(Drupal.theme('ajaxProgressIndicatorFullscreen'));
+        $('body').append($ajaxProgress);
 
         // Prevent unloading
         $(window).on('beforeunload.waitForPaypal', function () {
@@ -155,6 +160,8 @@
           },
           success: function (data, textStatus) {
             // alert('Success, your payment has been stored.');
+            // Remove ajax throbber
+            $ajaxProgress.remove();
 
             // All the window to reload
             $(window).off('beforeunload.waitForPaypal');
@@ -167,10 +174,10 @@
             var destination = getQueryVariable('dest') || false;
             
             if (destination) {
-              window.location.replace(destination + '#random' + Math.random());
+              window.location.replace(destination + '#r' + Math.random().toFixed(2));
             }
             else {
-              window.location.reload(window.location.href  + '#random' + Math.random());
+              window.location.reload(window.location.href  + '#r' + Math.random().toFixed(2));
             }
           },
           error: function (xhr, textStatus, errorThrown) {
