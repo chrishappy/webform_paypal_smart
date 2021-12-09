@@ -104,12 +104,12 @@ class PaypalHandler extends ControllerBase {
         $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
         $webform_submission->save();
 
-        // Trigger save
+        // Set message
+        \Drupal::messenger()->addMessage('Your payment has been successfully processed');
+
+        // Trigger hooks
         $webform_id = $webform_submission->getWebform()->id();
         \Drupal::moduleHandler()->invokeAll('webform_paypal_smart_submission_post_save', [$webform_submission, $webform_id]);
-        
-        // Set message
-        \Drupal::messenger()->addMessage('Your payment has been successfully proccessed');
         
         $this->logger->info('PayPalOrdersApi: Finished storing Order #@orderID', ['@orderID' => $orderID]);
         
