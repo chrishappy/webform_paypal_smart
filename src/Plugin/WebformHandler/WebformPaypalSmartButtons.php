@@ -63,21 +63,23 @@ class WebformPaypalSmartButtons extends WebformHandlerBase {
       $form['#attached']['library'][] = 'webform_paypal_smart/webform-paypal-checkout';
     }
 
-    if (isset($form['actions']) || isset($form['elements']['actions'])) {
-      if (isset($form['actions'])) {
-        $form['actions']['#attributes']['class'][] = 'hidden'; // We want users to click the paypal button
-        unset($form['actions']['submit']);
-      }
+    // if ($webform_submission->isNew()) {
+      if (isset($form['actions']) || isset($form['elements']['actions'])) {
+        if (isset($form['actions'])) {
+          $form['actions']['#attributes']['class'][] = 'hidden'; // We want users to click the paypal button
+          unset($form['actions']['submit']);
+        }
 
-      if (isset($form['elements']['actions']) ){
-        $form['elements']['actions']['#attributes']['class'][] = 'hidden'; // We want users to click the paypal button
-        unset($form['elements']['actions']['submit']);
+        if (isset($form['elements']['actions']) ){
+          $form['elements']['actions']['#attributes']['class'][] = 'hidden'; // We want users to click the paypal button
+          unset($form['elements']['actions']['submit']);
+        }
       }
-    }
-    else {
-      debug(json_encode($form));
-      // @TODO What happens if the user has a different submit button?
-    }
+      else {
+        debug(json_encode($form));
+        // @TODO What happens if the user has a different submit button?
+      }
+    // }
   }
   
   // /**

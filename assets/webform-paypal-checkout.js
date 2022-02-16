@@ -88,10 +88,10 @@
           fundingicons: 'false',
         },
         onClick: function (data, actions) { // Validate the button click
-          var orderFunction = $form.data(webformPaypalCheckout.orderFunctionAttribute);
+          var $form = $('.js--webformPaypalCheckoutForm');
           
           // Save webform as draft
-          // TODO save webform as draft using AJAX, perhaps async?
+          // TODO better way to save webform as draft using AJAX, perhaps async?
           $form.find(webformPaypalCheckout.draftButtonSelector).click();
 
           // Source: https://stackoverflow.com/a/48267035 (Loilo <https://stackoverflow.com/u/2048874>)
@@ -105,13 +105,15 @@
             console.log("Form is not valid");
           }
           else if (webformPaypalCheckout.handlerHasFunction('customValidation')) {
+            // Need to save the form some other how...
+
             return webformPaypalCheckout.handlerCheckValidation(data, actions);
           }
           else if (false) {
             // TODO check if there are enough tickets
             // Reserve tickets before initating order
           }
-          else {
+          else {            
             return actions.resolve();
           }
 
