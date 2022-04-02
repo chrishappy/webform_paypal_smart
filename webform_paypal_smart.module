@@ -21,6 +21,19 @@ use Drupal\webform_paypal_smart\WebformPaypalApi;
 // }
 
 /**
+ * Implements hook_theme().
+ */
+function webform_paypal_smart_theme() {
+  $info = [
+    'webform_handler_webform_paypal_smart_buttons_handler_summary' => [
+      'variables' => ['settings' => NULL, 'handler' => NULL],
+    ],
+  ];
+
+  return $info;
+}
+
+/**
  * Create a dynamic library, based on whether Paypal is in Sandbox or Live mode
  */
 function webform_paypal_smart_library_info_build() {
@@ -31,19 +44,22 @@ function webform_paypal_smart_library_info_build() {
   // Default
   $libraries['paypal-sdk'] = [];
 
-  $paypalStatus = $paypalConfig->get('paypal_status');
+  $paypalStatus = $paypalConfig->get(WebformPaypalApi::STATUS_SETTING_NAME);
+  
+  $sandboxClientId = $paypalConfig->get('paypal_sandbox_client_id');
+  $liveClientId = $paypalConfig->get('paypal_live_client_id');
   
   $additionalQuery = ''; // Must begin with an &
 
   // Switch the Client ID depending on Sandbox vs Production
   switch ($paypalStatus) {
     case WebformPaypalApi::PAYPAL_SANDBOX:
-      $userClientId = $paypalConfig->get('paypal_sandbox_client_id');
+      $userClientId = $sandboxClientId;
 //      $additionalQuery = '&debug=true';
     break;
 
     case WebformPaypalApi::PAYPAL_PRODUCTION:
-      $userClientId = $paypalConfig->get('paypal_live_client_id');
+      $userClientId = $liveClientId;
     break;
 
     default:
@@ -63,11 +79,36 @@ function webform_paypal_smart_library_info_build() {
     ];
   }
   else {
+    // Paypal Default query parameters
     // @see https://developer.paypal.com/docs/checkout/reference/customize-sdk/#query-parameters
+    $paypalInitialUrl = 'https://www.paypal.com/sdk/js?currency=CAD&disable-card=amex,jcb&locale=en_CA&client-id=';
+
+    // Unless you have really good reason to, you should always use this library to
+    // include the Paypal SDK
     $libraries['paypal-sdk'] += [
       'version' => 1,
       'js' => [
-        'https://www.paypal.com/sdk/js?currency=CAD&disable-card=amex,jcb&locale=en_CA&client-id=' . $userClientId . $additionalQuery => [
+        $paypalInitialUrl . $userClientId . $additionalQuery => [
+          'type'=> 'external',
+          'minified' => true,
+        ]
+      ],
+    ];
+
+    $libraries['paypal-sdk--sandbox'] = [
+      'version' => 1,
+      'js' => [
+        $paypalInitialUrl . $sandboxClientId . $additionalQuery => [
+          'type'=> 'external',
+          'minified' => true,
+        ]
+      ],
+    ];
+
+    $libraries['paypal-sdk--live'] = [
+      'version' => 1,
+      'js' => [
+        $paypalInitialUrl . $liveClientId . $additionalQuery => [
           'type'=> 'external',
           'minified' => true,
         ]

@@ -121,7 +121,6 @@
         },
         // Set up the transaction
         createOrder: function (data, actions) {
-
           // Create the paypal order on demand
           try {
             var paypalOrder = webformPaypalCheckout.handlerCreatePaypalOrder();
@@ -157,19 +156,30 @@
       }
     },
     handlerCreatePaypalOrder: function () {
-
       var $form = $('.js--webformPaypalCheckoutForm'); // Don't cache due to https://stackoverflow.com/q/42053775
 
       if (this.handlerHasFunction('createOrder')) {
-        var defaultOrderObject = JSON.parse(JSON.stringify(Drupal.webformPaypalCheckout.defaultOrder));
+        var defaultOrderObject = JSON.parse(JSON.stringify(Drupal.webformPaypalCheckout.defaultOrder)),
+            orderReference = $form.find('[data-drupal-selector="edit-paypal-webform-connector-value"]').val();
 
-        return this.handler.createOrder($form, defaultOrderObject);
+        var order = this.handler.createOrder($form, defaultOrderObject);
+
+        if (order.purchase_units.length >= 1 && !order.purchase_units[0].hasOwnProperty('reference_id')) {
+          order.purchase_units[0].reference_id = orderReference;
+        }
+        
+
+        console.log(JSON.stringify(order));
+
+        return order;
       }
 
       throw "No CreateOrderHook found";
     },
     onPaypalApprove: function (data, actions) {
-      var potentialRedirect = Drupal.behaviors.webformPaypalCheckout.handlerGetProperty('redirectUrl');
+      // Use the reference ID to find the appropiate webform
+      var $form = $('.js--webformPaypalCheckoutForm'),
+          orderReferenceId = $form.find('[data-drupal-selector="edit-paypal-webform-connector-value"]').val()
 
       return actions.order.capture().then(function (details) {
 
@@ -183,46 +193,55 @@
           return 'Please wait as we record your payment.';
         });
 
-        return $.ajax({
-          url: '/paypal/complete',
-          type: 'POST',
-          dataType: 'json',
-          data: {
-            orderID: data.orderID,
-            submissionID: $('.js--webformPaypalCheckoutForm').data('sid'), // TODO improve getting sid || Drupal.behaviors.webformPaypalCheckout.sid,
-          },
-          success: function (data, textStatus) {
-            // alert('Success, your payment has been stored.');
-            // Remove ajax throbber
-            $ajaxProgress.remove();
-
-            // All the window to reload
-            $(window).off('beforeunload.waitForPaypal');
-
-            $(window).on('beforeunload', function () {
-              $(window).scrollTop(0);
-            });
-
-            // Reload the page
-            var destination = getQueryVariable('dest') || potentialRedirect || false;
-            
-            if (destination) {
-              window.location.replace(destination + '#r' + Math.random().toFixed(2));
-            }
-            else {
-              window.location.reload(window.location.href  + '#r' + Math.random().toFixed(2));
-            }
-          },
-          error: function (xhr, textStatus, errorThrown) {
-            console.error('Error: ' + textStatus + ' ' + JSON.stringify(errorThrown));
-            // alert('Sorry, your payment has not been stored. Please contact us for more information.');
-
-            // All the window to reload
-            $(window).off('beforeunload.waitForPaypal');
-          }
-        })
+        return Drupal.webformPaypalCheckout.getAjaxRequest(data, orderReferenceId, $ajaxProgress);
       });
     }
+  }
+
+  Drupal.webformPaypalCheckout.getAjaxRequest = function (data, referenceId, $ajaxProgress) {
+    return $.ajax({
+      url: '/paypal/complete',
+      type: 'POST',
+      dataType: 'json',
+      data: {
+        orderID: data.orderID,
+        referenceID: referenceId,
+      },
+      success: function (data, textStatus) {
+        // Remove ajax throbber
+        $ajaxProgress.remove();
+
+        // All the window to reload
+        $(window).off('beforeunload.waitForPaypal');
+
+        $(window).on('beforeunload', function () {
+          $(window).scrollTop(0);
+        });
+
+        // Reload the page
+        var potentialRedirect = Drupal.behaviors.webformPaypalCheckout.handlerGetProperty('redirectUrl');
+        var destination = getQueryVariable('dest') || potentialRedirect || false;
+        
+        if (destination) {
+          window.location.replace(destination + '#r' + Math.random().toFixed(2));
+        }
+        else {
+          window.location.reload(window.location.href  + '#r' + Math.random().toFixed(2));
+        }
+      },
+      error: function (xhr, textStatus, errorThrown) {
+        // Remove ajax throbber
+        $ajaxProgress.remove();
+
+        console.error('Could not process order: ' + textStatus);
+        console.error(errorThrown);
+        console.error(xhr);
+        alert('Sorry, there was an error. Please contact us for more information.');
+
+        // All the window to reload
+        $(window).off('beforeunload.waitForPaypal');
+      }
+    });
   }
 
   // See https://developer.paypal.com/docs/api/orders/v2/#orders-create-request-body

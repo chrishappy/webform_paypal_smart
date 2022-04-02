@@ -1,2 +1,7 @@
 administer webform_paypal_smart:
   title: "Administer Webform Paypal (Smart Button) Settings"
+
+bypass webform_paypal_smart payment:
+  title: "Bypass paying for tickets"
+  description: "When paying for products, allow this role to avoid paying for tickets"
+  restrict access: true

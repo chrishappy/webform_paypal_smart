@@ -5,8 +5,12 @@ webform-paypal-checkout:
     assets/webform-paypal-checkout.js: {}
   dependencies:
     - core/jquery
-    - webform_paypal_smart/paypal-sdk # ADDED THROUGH hook_library_info_build()
     - webform_paypal_smart/dont-submit-again
+
+# The following libraries are added through the .MODULE file
+# - webform_paypal_smart/paypal-sdk
+# - webform_paypal_smart/paypal-sdk--sandbox
+# - webform_paypal_smart/paypal-sdk--live
 
 # Prevent Clicking the Submit Button Twice
 dont-submit-again:

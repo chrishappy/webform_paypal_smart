@@ -10,7 +10,7 @@ use Drupal\webform_paypal_smart\WebformPaypalApi;
 use Symfony\Component\HttpFoundation\Request;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManager;
-
+use Drupal\webform_paypal_smart\Plugin\WebformHandler\WebformPaypalSmartButtons;
 // use Drupal\node\Entity\Node;
 // use Drupal\webform\Entity\WebformSubmission;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -50,62 +50,83 @@ class PaypalHandler extends ControllerBase {
     
     try {
       $orderID = $this->request->request->get('orderID');
+      $referenceID = $this->request->request->get('referenceID');
 
-      /** @var \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store */
-      $temp_store = \Drupal::service('tempstore.private')->get('webform_paypal_smart_buttons');
-      $store_entries = $temp_store
-        ->get('currentWebformOrder');
-      $sid = $store_entries['sid'] ?? $this->request->request->get('submissionID');
-      $temp_store->delete('currentWebformOrder');
-
-      debug(['store_entires', $store_entries]);
-      debug($this->request->request->all());
-
-      if (empty($orderID) || empty($sid)) {
+      if (empty($orderID) || empty($referenceID)) {
         if (empty($orderID)) {
           $this->logger->info($this->t('PayPalOrdersApi: ID not found'));
         }
         
-        if (empty($sid)) {
-          $this->logger->info($this->t('PayPalOrdersApi: Webform Submission ID not found'));
+        if (empty($referenceID)) {
+          $this->logger->info($this->t('PayPalOrdersApi: Webform Reference ID not found'));
         }
         
         throw new \Exception('No data');
       }
       else {
+
+        /** @var \Drupal\Core\TempStore\PrivateTempStoreFactory $temp_store */
+        $temp_store = \Drupal::service('tempstore.private')->get('webform_paypal_smart_buttons');
+        $orderMap = $temp_store->get('webformOrders');
+        $sid = $orderMap[$referenceID] ?? -1;
+
+        if ($sid <= 0) {
+          throw new \Exception('Could not fetch Webform Submission: reference key missing');
+        }
+        else {
+          // Remove record
+          unset($orderMap[$referenceID]);
+          $temp_store->set('webformOrders', $orderMap);
+        }
+
         $this->logger->info($this->t('PayPalOrdersApi: Processing Order #') . $orderID);
 
-        $paypalOrder = $this->webformPaypalApi->getOrder($orderID);
+        // Load submission using sid.
+        /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
+        $webform_submission = $this->entityTypeManager->getStorage('webform_submission')->load($sid);
 
+        if (empty($webform_submission)) {
+          throw new \Exception('Could not fetch Webform Submission');
+        }
+
+        // Get the current environment
+        $handlerCollection = $webform_submission->getWebform()->getHandlers('webform_paypal_smart_buttons_handler');
+        $handlers = $handlerCollection->getInstanceIds();
+        $webformPaypalSmartHandler = $handlerCollection->get(reset($handlers));
+        $paypalEnvironment = $webformPaypalSmartHandler->getSetting(WebformPaypalApi::STATUS_SETTING_NAME);
+
+        // Get the order from PayPal
+        $paypalOrder = $this->webformPaypalApi->getOrder($orderID, $paypalEnvironment);
         if (empty($paypalOrder)) {
           throw new \Exception('Could not fetch PayPal order');
         }
         
-        // Get paypal details
-        $paypalDetails = $paypalOrder->result->purchase_units;
+        // Get paypal details (aka the purchase units)
+        $paypalPurchaseUnits = $paypalOrder->result->purchase_units;
 
-        
-        // Load submission using sid.
-        /** @var \Drupal\webform\WebformSubmissionInterface $webform_submission */
-        $webform_submission = \Drupal\webform\Entity\WebformSubmission::load($sid);
+        // Check that the reference ids match each other
+        if (empty($paypalPurchaseUnits[0]) || $paypalPurchaseUnits[0]->reference_id !== $referenceID) {
+          throw new \Exception('Reference values do not match');
+        }
 
         // Validate the paypal total
-        $paypalTotalAmount = $this->calcuatePaypalTotalPaid($paypalDetails);
+        $paypalTotalAmount = $this->calcuatePaypalTotalPaid($paypalPurchaseUnits);
         $webformTotal = $this->calcuateWebformTotalPaid($webform_submission->getData());
 
         // @TODO How to detect that payment didn't change?
-
-        //@TODO Detect if payment is in real or sandbox (using links array?)
-        // debug([$paypalOrder, $paypalDetails]);
-        
         $webform_submission->setElementData('_paypal_order_id', $orderID);
         $webform_submission->setElementData('_paypal_order_json', json_encode($paypalOrder)); // Does not store billing address
 
-        $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
-        $webform_submission->save();
+        // if ($paypalEnvironment !== WebformPaypalApi::PAYPAL_SANDBOX) {
+          $webform_submission->set('in_draft', FALSE); // Transfer webform from 'draft' to 'complete'
+          // Set message
+          \Drupal::messenger()->addMessage('Your payment has been successfully processed');
+        // }
+        // else {
+        //   \Drupal::messenger()->addWarning('Your payment will be stored, but still draft since still in sandbox mode');
+        // }
 
-        // Set message
-        \Drupal::messenger()->addMessage('Your payment has been successfully processed');
+        $webform_submission->save();
 
         // Trigger hooks
         $webform_id = $webform_submission->getWebform()->id();
@@ -147,18 +168,18 @@ class PaypalHandler extends ControllerBase {
   /**
    * Calculate the total the payee paid
    * 
-   * @param array|object $paypalDetails
+   * @param array|object $paypalPurchaseUnits
    */
-  private function calcuatePaypalTotalPaid($paypalDetails) {
+  private function calcuatePaypalTotalPaid($paypalPurchaseUnits) {
     $paypalTotalAmount = 0.0;
 
-    if (is_array($paypalDetails)) {
-      foreach($paypalDetails as $paypalDetail) {
+    if (is_array($paypalPurchaseUnits)) {
+      foreach($paypalPurchaseUnits as $paypalDetail) {
         $paypalTotalAmount += (float) $paypalDetail->amount->value;
       }
     }
     else {
-      $paypalTotalAmount = (float) $paypalDetails->amount->value;
+      $paypalTotalAmount = (float) $paypalPurchaseUnits->amount->value;
     }
 
     return $paypalTotalAmount;
